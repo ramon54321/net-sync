@@ -1,0 +1,24 @@
+{
+  "name": "net-sync",
+  "version": "0.0.1",
+  "description": "Network sync",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepare": "npm run clean && npm run build",
+    "start:dev": "npm run build && node dist/test.js",
+    "clean": "rm -rf dist",
+    "build": "tsc"
+  },
+  "author": "Ramon Brand",
+  "license": "ISC",
+  "dependencies": {
+    "essential-data-structures": "0.0.3",
+    "jsondiffpatch": "^0.4.1",
+    "websocket": "^1.0.33"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.14",
+    "@types/websocket": "^1.0.1"
+  }
+}
