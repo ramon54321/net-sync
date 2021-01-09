@@ -3,7 +3,7 @@ import { IndexedMap } from 'essential-data-structures'
 import * as http from 'http'
 import { EventEmitter } from 'events'
 
-interface NetConnection {
+export interface NetConnection {
   id: string
   connection: WebSocket.connection
 }
@@ -70,6 +70,7 @@ export class NetServer<M extends object> extends EventEmitter {
 export declare interface NetClient<M extends object> {
   on(event: 'message', listener: (message: M) => void): this
   on(event: 'connect', listener: (connection: WebSocket.connection) => void): this
+  on(event: 'disconnect', listener: (connection: WebSocket.connection) => void): this
 }
 
 export class NetClient<M extends object> extends EventEmitter {
@@ -90,6 +91,9 @@ export class NetClient<M extends object> extends EventEmitter {
         this.emit('message', JSON.parse(message.utf8Data!)),
       )
       this.emit('connect', connection)
+      this._connection.on('close', () => {
+        this.emit('disconnect', connection)
+      })
     })
   }
 

@@ -13,7 +13,7 @@ interface NSM_FullState {
   fullstate: any
 }
 
-interface NetMessageBase {
+export interface NetMessageBase {
   type: string
 }
 type NetMessage<T extends NetMessageBase> = NetSyncMessage | T
@@ -56,13 +56,10 @@ export class NetSyncClient<T extends NetMessageBase> extends NetClient<NetMessag
     this._diffPatcher = new DiffPatcher(stateRef)
     this.on('message', (message) => {
       if (message.type === 'diff') {
-        console.log('CLIENT: Applying Diff')
         this._diffPatcher.patch((message as NSM_Diff).diff)
       } else if (message.type === 'fullstate') {
-        console.log('CLIENT: Setting Full State')
         this._diffPatcher.set((message as NSM_FullState).fullstate)
       }
-      console.log(this._stateRef)
     })
   }
 }
