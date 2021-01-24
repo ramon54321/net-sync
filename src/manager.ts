@@ -1,4 +1,5 @@
-import { NetServer, DiffViewer, NetClient, DiffPatcher } from '.'
+import { NetServer, NetClient } from './net'
+import { DiffViewer, DiffPatcher } from './sync'
 
 type NetSyncMessage = NSM_Empty | NSM_Diff | NSM_FullState
 interface NSM_Empty {
