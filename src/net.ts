@@ -2,37 +2,24 @@ import * as WebSocket from 'websocket'
 import { IndexedMap } from 'essential-data-structures'
 import * as http from 'http'
 import { EventEmitter } from 'events'
-import { parse } from 'path'
 
 export interface NetConnection {
   id: string
   connection: WebSocket.connection
-  missedPings: number
-}
-
-export interface PingMessage {
-  type: 'ping'
 }
 
 export declare interface NetServer<M extends object> {
-  on(
-    event: 'message',
-    listener: (connection: NetConnection, message: M) => void,
-  ): this
+  on(event: 'message', listener: (connection: NetConnection, message: M) => void): this
   on(event: 'connect', listener: (connection: NetConnection) => void): this
   on(event: 'disconnect', listener: (connection: NetConnection) => void): this
-  on(event: 'dropped', listener: (connection: NetConnection) => void): this
 }
 
 export class NetServer<M extends object> extends EventEmitter {
-  private readonly _connections: IndexedMap<NetConnection> = new IndexedMap<NetConnection>(
-    ['id'],
-  )
+  private readonly _connections: IndexedMap<NetConnection> = new IndexedMap<
+    NetConnection
+  >(['id'])
   private readonly _port: number
   private readonly _wsServer: WebSocket.server
-  private readonly pingMap = new Map<string, number>()
-  private readonly pingInterval = 250
-  private readonly pingLimit = 4
 
   constructor(port: number) {
     super()
@@ -49,45 +36,19 @@ export class NetServer<M extends object> extends EventEmitter {
       const netConnection: NetConnection = {
         id: this.getIdFromConnection(connection),
         connection: connection,
-        missedPings: 0,
       }
       this._connections.add(netConnection, netConnection.id)
-      connection.on('message', (message) => {
-        const parsedMessage = JSON.parse(message.utf8Data!)
-        if (parsedMessage.type === 'ping') {
-          netConnection.missedPings = 0
-          return
-        }
-        this.emit('message', netConnection, parsedMessage)
-      })
+      connection.on('message', (message) =>
+        this.emit('message', netConnection, JSON.parse(message.utf8Data!)),
+      )
       this.emit('connect', netConnection)
     })
 
-    this._wsServer.on('close', (connection) => this.onClose(connection))
-
-    setInterval(() => this.pingClients(), this.pingInterval)
-  }
-
-  private pingClients() {
-    this._connections.forEach((tag, netConnection: NetConnection) => {
-      if (netConnection.missedPings >= this.pingLimit) {
-        this.emit('dropped', netConnection)
-        netConnection.connection.close()
-      }
+    this._wsServer.on('close', (connection) => {
+      const netConnection = this._connections.get(this.getIdFromConnection(connection))!
+      this.emit('disconnect', netConnection)
+      this._connections.remove(netConnection.id)
     })
-    this.broadcastMessage({
-      type: 'ping',
-    })
-    this._connections.forEach(
-      (tag, netConnection: NetConnection) => netConnection.missedPings++,
-    )
-  }
-
-  private onClose(connection: WebSocket.connection) {
-    const id = this.getIdFromConnection(connection)
-    const netConnection = this._connections.get(id)!
-    this.emit('disconnect', netConnection)
-    this._connections.remove(netConnection.id)
   }
 
   sendMessage(connectionId: string, message: M): boolean {
@@ -97,7 +58,7 @@ export class NetServer<M extends object> extends EventEmitter {
     return true
   }
 
-  broadcastMessage(message: M | PingMessage) {
+  broadcastMessage(message: M) {
     this._wsServer.broadcast(JSON.stringify(message))
   }
 
@@ -108,14 +69,8 @@ export class NetServer<M extends object> extends EventEmitter {
 
 export declare interface NetClient<M extends object> {
   on(event: 'message', listener: (message: M) => void): this
-  on(
-    event: 'connect',
-    listener: (connection: WebSocket.connection) => void,
-  ): this
-  on(
-    event: 'disconnect',
-    listener: (connection: WebSocket.connection) => void,
-  ): this
+  on(event: 'connect', listener: (connection: WebSocket.connection) => void): this
+  on(event: 'disconnect', listener: (connection: WebSocket.connection) => void): this
 }
 
 export class NetClient<M extends object> extends EventEmitter {
@@ -123,7 +78,7 @@ export class NetClient<M extends object> extends EventEmitter {
   private readonly _port: number
   private _socket: WebSocket.client
   private _connection?: WebSocket.connection
-
+  
   constructor(host: string, port: number) {
     super()
     this._host = host
@@ -132,14 +87,9 @@ export class NetClient<M extends object> extends EventEmitter {
     this._socket.connect(`ws://${host}:${port}/`)
     this._socket.on('connect', (connection) => {
       this._connection = connection
-      this._connection.on('message', (message) => {
-        const parsedMessage = JSON.parse(message.utf8Data!)
-        if (parsedMessage.type === 'ping') {
-          this.sendPing()
-          return
-        }
-        this.emit('message', parsedMessage)
-      })
+      this._connection.on('message', (message) =>
+        this.emit('message', JSON.parse(message.utf8Data!)),
+      )
       this.emit('connect', connection)
       this._connection.on('close', () => {
         this.emit('disconnect', connection)
@@ -147,13 +97,7 @@ export class NetClient<M extends object> extends EventEmitter {
     })
   }
 
-  private sendPing() {
-    this.sendMessage({
-      type: 'ping',
-    })
-  }
-
-  sendMessage(message: M | PingMessage) {
+  sendMessage(message: M) {
     if (!this._connection)
       throw new Error(
         'NET_ERROR: Trying to send message to server without a connection',
